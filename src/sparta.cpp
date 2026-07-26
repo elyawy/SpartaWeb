@@ -9,11 +9,11 @@
 
 int main () {
 // init simulator 
-    tree tree_("libs/Sailfish-backend/tests/trees/normalbranches_nLeaves100.treefile");
+    tree tree_("../libs/Sailfish-backend/tests/trees/normalbranches_nLeaves100.treefile");
     size_t seed = 123456789;
     SimulationContext<SFC64> simContext(&tree_, seed);
 
-        vector<DiscreteDistribution*> insertionDists(tree_.getNodesNum() - 1);
+    vector<DiscreteDistribution*> insertionDists(tree_.getNodesNum() - 1);
     vector<DiscreteDistribution*> deletionDists(tree_.getNodesNum() - 1);
 
     // Zipf distribution with 'a' paramater of 1.7
@@ -27,8 +27,8 @@ int main () {
     vector<double> insertionRates(tree_.getNodesNum() - 1);
     vector<double> deletionRates(tree_.getNodesNum() - 1);
 
-    fill(insertionRates.begin(), insertionRates.end(), 0.0);
-    fill(deletionRates.begin(), deletionRates.end(), 0.0);
+    fill(insertionRates.begin(), insertionRates.end(), 0.05);
+    fill(deletionRates.begin(), deletionRates.end(), 0.05);
 
     SimulationProtocol protocol(simContext.getTree()->getNodesNum() - 1);
     simContext.setProtocol(&protocol);
@@ -48,10 +48,17 @@ int main () {
     IndelSimulator<SFC64> indelSim(simContext, &protocol);
     auto eventMap = indelSim.generateSimulation();
 
-    auto msa = MSA<SFC64>(eventMap, simContext);
+    MSA<SFC64> msa = MSA<SFC64>(eventMap, simContext);
 
     std::cout << "MSA built. Number of sequences: " << msa.getNumberOfSequences() 
               << ", MSA length: " << msa.getMSAlength() << "\n";
 
-
+    MsaStatsCalculator msaStats(*msa.getSparseMSA(), msa.getNumberOfSequences(), msa.getMSAlength());
+    msaStats.recomputeStats();
+    std::cout << "Calculating MSA statistics...\n";
+    auto stats = msaStats.getStatVec();
+    std::cout << "MSA statistics calculated. Number of stats: " << stats.size() << "\n";
+    for (const auto& stat : stats) {
+        std::cout << stat << "\n";
+    }
 }
