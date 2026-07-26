@@ -17,6 +17,11 @@ struct InferenceResult {
     std::vector<double> params; // root, insRate, delRate, insLenParam, delLenParam
 };
 
+// User-adjustable prior knobs. Sentinel {-1,-1} on a range means "use default".
+struct PriorOverrides {
+    std::pair<double,double> sumRatesRange = {-1.0, -1.0};
+};
+
 // Hardcoded prior defaults (matches spartaabc/default_prior.json / test files)
 static PriorConfig makeDefaultPrior(int rootMin, int rootMax) {
     PriorConfig prior;
@@ -50,7 +55,8 @@ double benchmarkSimTime(std::string newickText, int sampleSims, unsigned seed) {
 InferenceResult runInference(std::vector<std::string> msaSeqs,
                               std::string newickText,
                               int numSimsPerModel,
-                              unsigned seed) {
+                              unsigned seed,
+                              PriorOverrides overrides) {
     // empirical stats from user MSA
     MsaStatsCalculator msaStats(msaSeqs);
     msaStats.recomputeStats();
@@ -63,6 +69,11 @@ InferenceResult runInference(std::vector<std::string> msaSeqs,
     double maxLen = fullStats[2]; // MSA_MAX_LEN
 
     PriorConfig prior = makeDefaultPrior(int(minLen * 0.8), int(maxLen * 1.1));
+
+    // apply user override, if provided
+    if (overrides.sumRatesRange.first >= 0.0 && overrides.sumRatesRange.second >= 0.0) {
+        prior.sumRatesRange = overrides.sumRatesRange;
+    }
 
     tree tree_(newickText, false);
 
@@ -89,6 +100,9 @@ EMSCRIPTEN_BINDINGS(sparta_module) {
     value_object<InferenceResult>("InferenceResult")
         .field("model", &InferenceResult::model)
         .field("params", &InferenceResult::params);
+
+    value_object<PriorOverrides>("PriorOverrides")
+        .field("sumRatesRange", &PriorOverrides::sumRatesRange);
 
     emscripten::function("benchmarkSimTime", &benchmarkSimTime);
     emscripten::function("runInference", &runInference);
