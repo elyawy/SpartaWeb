@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Sparta wasm test</title></head>
+<body>
+
+<h3>MSA (fasta text)</h3>
+<textarea id="msa" rows="8" cols="60">&gt;seq1
+ACGTACGTACGTACGT
+&gt;seq2
+ACGT--GTACGTACGT
+&gt;seq3
+ACGTACGT--GTACGT
+</textarea>
+
+<h3>Tree (newick text)</h3>
+<textarea id="tree" rows="4" cols="60">(seq1:0.1,(seq2:0.1,seq3:0.1):0.1);</textarea>
+
+<h3>numSimsPerModel</h3>
+<input id="numsims" type="number" value="200">
+
+<br><br>
+<button id="benchBtn">Run benchmark</button>
+<button id="inferBtn">Run inference</button>
+
+<progress id="progressBar" value="0" max="100" style="display:none"></progress>
+<span id="progressText"></span>
+
+<pre id="out"></pre>
+
+<script type="module">
+    const out = document.getElementById('out');
+    const log = (msg) => { out.textContent += msg + "\n"; };
+
+    log("main thread ready (worker loads wasm on first inference run)");
+
+    // benchmark button still calls wasm directly on main thread (fast, one-off)
+    let benchModule = null;
+    document.getElementById('benchBtn').onclick = async () => {
+        if (!benchModule) {
+            const createSparta = (await import('./dist/sparta.js')).default;
+            benchModule = await createSparta();
+        }
+        const treeText = document.getElementById('tree').value;
+        const start = performance.now();
+        const msPerSim = benchModule.benchmarkSimTime(treeText, 150, 42);
+        const elapsed = performance.now() - start;
+        log(`benchmarkSimTime: ${msPerSim.toFixed(3)} ms/sim (call took ${elapsed.toFixed(1)} ms total)`);
+    };
+
+    function parseFasta(text) {
+        const seqs = [];
+        const blocks = text.split('>').filter(b => b.trim().length > 0);
+        for (const block of blocks) {
+            const lines = block.split('\n');
+            lines.shift(); // drop header line
+            seqs.push(lines.join('').trim());
+        }
+        return seqs;
+    }
+
+    const worker = new Worker('./worker.js', { type: 'module' });
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    let tickInterval = null;
+
+    worker.onmessage = (e) => {
+        if (e.data.type === "eta") {
+            const estimatedMs = e.data.estimatedMs;
+            const runStart = performance.now();
+            progressBar.style.display = "inline";
+            progressBar.value = 0;
+            tickInterval = setInterval(() => {
+                const pct = Math.min(99, ((performance.now() - runStart) / estimatedMs) * 100);
+                progressBar.value = pct;
+                progressText.textContent = `~${pct.toFixed(0)}% (est. ${(estimatedMs/1000).toFixed(1)}s total)`;
+            }, 200);
+        } else if (e.data.type === "done") {
+            clearInterval(tickInterval);
+            progressBar.value = 100;
+            progressText.textContent = "done";
+
+            log(`winning model: ${e.data.model}`);
+            const names = ["root_length", "ins_rate", "del_rate", "ins_len_param", "del_len_param"];
+            e.data.params.forEach((p, i) => log(`  ${names[i]}: ${p}`));
+        }
+    };
+
+    document.getElementById('inferBtn').onclick = () => {
+        const msaSeqs = parseFasta(document.getElementById('msa').value);
+        const treeText = document.getElementById('tree').value;
+        const numSims = parseInt(document.getElementById('numsims').value, 10);
+
+        log(`running inference (${numSims} sims/model)...`);
+        const seed = Math.floor(Math.random() * 2**31);
+        worker.postMessage({ msaSeqs, treeText, numSimsPerModel: numSims, seed });
+    };
+</script>
+
+</body>
+</html>
