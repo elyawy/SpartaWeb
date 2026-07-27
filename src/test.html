@@ -1,51 +1,256 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Sparta wasm test</title></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sparta wasm test</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #8b93a3;
+    --accent: #5b8cff;
+    --good: #35c98f;
+    --bad: #ff5c6c;
+    --warn: #f5b942;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 1100px;
+  }
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+  }
+  .card h3 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  textarea, input[type="number"] {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    resize: vertical;
+  }
+  textarea:focus, input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .row { display: flex; gap: 12px; align-items: center; }
+  .buttons { display: flex; gap: 10px; margin-top: 14px; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.15s ease;
+  }
+  button:hover { opacity: 0.85; }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  button.loading .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .progress-wrap {
+    margin-top: 16px;
+    display: none;
+  }
+  .progress-wrap.visible { display: block; }
+  .progress-track {
+    background: var(--panel-2);
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #7db3ff);
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+  .progress-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .log {
+    background: #0a0c10;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    height: 260px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .log-line { margin-bottom: 4px; }
+  .log-line.info { color: var(--muted); }
+  .log-line.success { color: var(--good); }
+  .log-line.error { color: var(--bad); }
+  .log-line.warn { color: var(--warn); }
+
+  .results { margin-top: 14px; }
+  .result-badge {
+    display: inline-block;
+    background: rgba(53, 201, 143, 0.12);
+    color: var(--good);
+    border: 1px solid rgba(53, 201, 143, 0.35);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  table.params {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.params td {
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.params td:first-child { color: var(--muted); }
+  table.params td:last-child { text-align: right; font-family: monospace; }
+</style>
+</head>
 <body>
 
-<h3>MSA (fasta text)</h3>
-<textarea id="msa" rows="8" cols="60">&gt;seq1
+<h1>🧬 Sparta wasm test</h1>
+<div class="subtitle">Benchmark and run ABC inference against the sparta wasm bindings.</div>
+
+<div class="layout">
+  <div>
+    <div class="card">
+      <h3>MSA (fasta text)</h3>
+      <textarea id="msa" rows="8">&gt;seq1
 ACGTACGTACGTACGT
 &gt;seq2
 ACGT--GTACGTACGT
 &gt;seq3
 ACGTACGT--GTACGT
 </textarea>
+    </div>
 
-<h3>Tree (newick text)</h3>
-<textarea id="tree" rows="4" cols="60">(seq1:0.1,(seq2:0.1,seq3:0.1):0.1);</textarea>
+    <div class="card">
+      <h3>Tree (newick text)</h3>
+      <textarea id="tree" rows="3">(seq1:0.1,(seq2:0.1,seq3:0.1):0.1);</textarea>
+    </div>
 
-<h3>numSimsPerModel</h3>
-<input id="numsims" type="number" value="200">
+    <div class="card">
+      <h3>Settings</h3>
+      <div class="row">
+        <label for="numsims" style="font-size:13px; color: var(--muted);">numSimsPerModel</label>
+      </div>
+      <input id="numsims" type="number" value="200" style="margin-top:8px; max-width: 140px;">
 
-<br><br>
-<button id="benchBtn">Run benchmark</button>
-<button id="inferBtn">Run inference</button>
+      <div class="row" style="margin-top:14px;">
+        <label for="maxSumRates" style="font-size:13px; color: var(--muted);">Sum of rates prior (max, bounded by 2.0)</label>
+      </div>
+      <input id="maxSumRates" type="number" value="0.05" min="0" max="2.0" step="0.01" style="margin-top:8px; max-width: 140px;">
 
-<progress id="progressBar" value="0" max="100" style="display:none"></progress>
-<span id="progressText"></span>
+      <div class="buttons">
+        <button id="inferBtn"><span class="spinner"></span>Run</button>
+      </div>
 
-<pre id="out"></pre>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-label" id="progressText"></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3>Log</h3>
+      <div class="log" id="out"></div>
+
+      <div class="results" id="results"></div>
+    </div>
+  </div>
+</div>
 
 <script type="module">
     const out = document.getElementById('out');
-    const log = (msg) => { out.textContent += msg + "\n"; };
+    const results = document.getElementById('results');
+    const inferBtn = document.getElementById('inferBtn');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
 
-    log("main thread ready (worker loads wasm on first inference run)");
+    function log(msg, type = 'info') {
+        const line = document.createElement('div');
+        line.className = `log-line ${type}`;
+        line.textContent = msg;
+        out.appendChild(line);
+        out.scrollTop = out.scrollHeight;
+    }
 
-    // benchmark button still calls wasm directly on main thread (fast, one-off)
-    let benchModule = null;
-    document.getElementById('benchBtn').onclick = async () => {
-        if (!benchModule) {
-            const createSparta = (await import('./dist/sparta.js')).default;
-            benchModule = await createSparta();
-        }
-        const treeText = document.getElementById('tree').value;
-        const start = performance.now();
-        const msPerSim = benchModule.benchmarkSimTime(treeText, 150, 42);
-        const elapsed = performance.now() - start;
-        log(`benchmarkSimTime: ${msPerSim.toFixed(3)} ms/sim (call took ${elapsed.toFixed(1)} ms total)`);
-    };
+    function setBusy(btn, busy) {
+        btn.disabled = busy;
+        btn.classList.toggle('loading', busy);
+    }
+
+    log("ready");
 
     function parseFasta(text) {
         const seqs = [];
@@ -59,40 +264,70 @@ ACGTACGT--GTACGT
     }
 
     const worker = new Worker('./worker.js', { type: 'module' });
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
     let tickInterval = null;
+
+    function resetProgress() {
+        clearInterval(tickInterval);
+        progressWrap.classList.remove('visible');
+        progressFill.style.width = '0%';
+        progressText.textContent = '';
+    }
 
     worker.onmessage = (e) => {
         if (e.data.type === "eta") {
             const estimatedMs = e.data.estimatedMs;
             const runStart = performance.now();
-            progressBar.style.display = "inline";
-            progressBar.value = 0;
+            progressWrap.classList.add('visible');
+            progressFill.style.width = '0%';
             tickInterval = setInterval(() => {
                 const pct = Math.min(99, ((performance.now() - runStart) / estimatedMs) * 100);
-                progressBar.value = pct;
-                progressText.textContent = `~${pct.toFixed(0)}% (est. ${(estimatedMs/1000).toFixed(1)}s total)`;
+                progressFill.style.width = `${pct}%`;
+                progressText.textContent = `~${pct.toFixed(0)}% (est. ${(estimatedMs / 1000).toFixed(1)}s total)`;
             }, 200);
         } else if (e.data.type === "done") {
             clearInterval(tickInterval);
-            progressBar.value = 100;
-            progressText.textContent = "done";
+            progressFill.style.width = '100%';
+            progressText.textContent = 'done';
+            setBusy(inferBtn, false);
 
-            log(`winning model: ${e.data.model}`);
+            log(`winning model: ${e.data.model}`, 'success');
             const names = ["root_length", "ins_rate", "del_rate", "ins_len_param", "del_len_param"];
-            e.data.params.forEach((p, i) => log(`  ${names[i]}: ${p}`));
+
+            const badge = document.createElement('div');
+            badge.className = 'result-badge';
+            badge.textContent = `winner: ${e.data.model}`;
+
+            const table = document.createElement('table');
+            table.className = 'params';
+            e.data.params.forEach((p, i) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${names[i] ?? `param_${i}`}</td><td>${p}</td>`;
+                table.appendChild(row);
+            });
+
+            results.innerHTML = '';
+            results.appendChild(badge);
+            results.appendChild(table);
+        } else if (e.data.type === "error") {
+            resetProgress();
+            setBusy(inferBtn, false);
+            log(`inference failed: ${e.data.message}`, 'error');
         }
     };
 
-    document.getElementById('inferBtn').onclick = () => {
+    inferBtn.onclick = () => {
         const msaSeqs = parseFasta(document.getElementById('msa').value);
         const treeText = document.getElementById('tree').value;
         const numSims = parseInt(document.getElementById('numsims').value, 10);
+        const maxSumRates = parseFloat(document.getElementById('maxSumRates').value);
+        const priorOverrides = { sumRatesRange: [0, maxSumRates] };
 
+        resetProgress();
+        results.innerHTML = '';
+        setBusy(inferBtn, true);
         log(`running inference (${numSims} sims/model)...`);
         const seed = Math.floor(Math.random() * 2**31);
-        worker.postMessage({ msaSeqs, treeText, numSimsPerModel: numSims, seed });
+        worker.postMessage({ msaSeqs, treeText, numSimsPerModel: numSims, seed, priorOverrides });
     };
 </script>
 

@@ -100,6 +100,10 @@ EMSCRIPTEN_BINDINGS(sparta_module) {
     value_object<InferenceResult>("InferenceResult")
         .field("model", &InferenceResult::model)
         .field("params", &InferenceResult::params);
+    
+    value_array<std::pair<double,double>>("PairDouble")
+        .element(&std::pair<double,double>::first)
+        .element(&std::pair<double,double>::second);
 
     value_object<PriorOverrides>("PriorOverrides")
         .field("sumRatesRange", &PriorOverrides::sumRatesRange);

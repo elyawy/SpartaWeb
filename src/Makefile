@@ -32,7 +32,8 @@ EMFLAGS   := -lembind \
              -sEXPORT_NAME=createSparta \
              -sALLOW_MEMORY_GROWTH=1 \
              -sSTACK_SIZE=8388608 \
-             -sENVIRONMENT=web
+             -sENVIRONMENT=web \
+             -sNO_DISABLE_EXCEPTION_CATCHING
 
 # ── Release ──────────────────────────────────────────────────────────────────
 .PHONY: all
